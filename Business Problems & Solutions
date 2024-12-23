@@ -1,3 +1,70 @@
-# Business Problems & Solutions
+-- Walmart Exploratory Data Analysis & SQL Queries
+
+-- Business Problems & Solutions
+
+-- Q1: Find Different Payment Methods, Number of Transactions, and Quantity Sold
+SELECT payment_method, COUNT(*) AS no_of_payments, SUM(quantity) AS no_of_qty
+FROM walmart
+GROUP BY payment_method;
+
+-- Q2: Highest Rated Category in Each Branch (Branch, Category, AVG Rating)
+SELECT *
+FROM (SELECT branch, category, AVG(rating) AS avg_rating,
+RANK() OVER(PARTITION BY branch ORDER BY AVG(rating) DESC) AS rank
+FROM walmart
+GROUP BY branch, category)
+WHERE rank = 1;
+
+-- Q3: Busiest Day for Each Branch by Number of Transactions
+SELECT * 
+FROM (SELECT branch, TO_CHAR(TO_DATE(date, 'DD/MM/YY'),'Day') AS day_name,
+COUNT(*) AS no_transactions, RANK() OVER(PARTITION BY branch ORDER BY COUNT(*) DESC) AS rank
+FROM walmart
+GROUP BY branch, TO_CHAR(TO_DATE(date, 'DD/MM/YY'),'Day'))
+WHERE rank = 1;
+
+-- Q4: Total Quantity Sold per Payment Method
+SELECT payment_method, SUM(quantity) AS no_of_qty
+FROM walmart
+GROUP BY payment_method;
+
+-- Q5: Average, Minimum, and Maximum Rating of Products by City
+SELECT city, category, MIN(rating) AS min_rating, MAX(rating) AS max_rating, AVG(rating) AS avg_rating
+FROM walmart
+GROUP BY city, category;
+
+-- Q6: Total Profit for Each Category (Ordered by Highest Profit)
+SELECT category, SUM(total) AS total_revenue, SUM(total * profit_margin) AS profit
+FROM walmart
+GROUP BY category
+ORDER BY profit DESC;
+
+-- Q7: Most Common Payment Method for Each Branch
+WITH cte AS
+(SELECT branch, payment_method, COUNT(*) AS total_transactions, RANK() OVER(PARTITION BY branch ORDER BY COUNT(*) DESC) AS rank
+FROM walmart
+GROUP BY branch, payment_method)
+SELECT * FROM cte WHERE rank = 1;
+
+-- Q8: Sales Grouped by Shifts (Morning, Afternoon, Evening)
+SELECT branch, CASE WHEN EXTRACT(HOUR FROM time::time) < 12 THEN 'Morning'
+WHEN EXTRACT(HOUR FROM time::time) BETWEEN 12 AND 17 THEN 'Afternoon'
+ELSE 'Evening' END AS day_time, COUNT(*)
+FROM walmart
+GROUP BY branch, day_time
+ORDER BY branch, COUNT(*) DESC;
+
+-- Q9: Top 5 Branches with Highest Revenue Decrease Ratio (2022 vs 2023)
+WITH revenue_2022 AS (SELECT branch, SUM(total) AS revenue
+FROM walmart WHERE EXTRACT(YEAR FROM TO_DATE(date,'DD/MM/YY')) = 2022 GROUP BY branch),
+revenue_2023 AS (SELECT branch, SUM(total) AS revenue
+FROM walmart WHERE EXTRACT(YEAR FROM TO_DATE(date,'DD/MM/YY')) = 2023 GROUP BY branch)
+SELECT ls.branch, ls.revenue AS last_year_revenue, cs.revenue AS current_year_revenue,
+ROUND((ls.revenue - cs.revenue)::numeric/ls.revenue::numeric * 100, 2) AS rev_dec_ratio
+FROM revenue_2022 AS ls JOIN revenue_2023 AS cs ON ls.branch = cs.branch
+WHERE ls.revenue > cs.revenue
+ORDER BY rev_dec_ratio DESC
+LIMIT 5;
+
 
 
